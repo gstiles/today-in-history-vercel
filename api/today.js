@@ -11,9 +11,11 @@ module.exports = async function (req, res) {
         const events = historyRes.data.events;
 
         const generalFacts = events.slice(0, 2).map(e => `${e.year}: ${e.description}`);
-        const artsFact = events.find(e => e.description.toLowerCase().includes("art"))?.description || "No arts fact found.";
-        const scienceFact = events.find(e => e.description.toLowerCase().includes("science"))?.description || "No science fact found.";
-        const sportsFact = events.find(e => e.description.toLowerCase().includes("sport"))?.description || "No sports fact found.";
+
+        // Corrected logic with null checks
+        const artsFact = events.find(e => e.description && e.description.toLowerCase().includes("art"))?.description || "No arts fact found.";
+        const scienceFact = events.find(e => e.description && e.description.toLowerCase().includes("science"))?.description || "No science fact found.";
+        const sportsFact = events.find(e => e.description && e.description.toLowerCase().includes("sport"))?.description || "No sports fact found.";
 
         const jokeRes = await axios.get("https://icanhazdadjoke.com/", {
             headers: { Accept: "application/json" }
