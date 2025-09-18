@@ -31,14 +31,22 @@ jobs:
           body: |
             Good morning!
 
-            Here are some interesting facts for today:
+            📅 Here are some interesting facts for today:
 
+            🕰️
             General Fact 1: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact1 }}
+            
             General Fact 2: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact2 }}
-
+            
+            🎨 
             Arts Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ArtsFact }}
+            
+            🔬 
             Science Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ScienceFact }}
+            
+            🏅 
             Sports Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).SportsFact }}
-
+            
+            😂 
             Your daily dad joke:
             ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).DadJoke }}
