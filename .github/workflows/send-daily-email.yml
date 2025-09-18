@@ -1,0 +1,44 @@
+name: Daily History Email
+
+on:
+  schedule:
+    # Runs Monday to Friday at 6:30 AM EST
+    - cron: '30 11 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  send_email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch History Data from Vercel API
+        id: fetch-data
+        run: |
+          # Use curl to get the JSON data from your Vercel API
+          API_RESPONSE=$(curl -s "https://[your-project-name].vercel.app/api/today")
+          echo "API_RESPONSE=${API_RESPONSE}" >> $GITHUB_OUTPUT
+
+      - name: Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Today in History: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).Date }}"
+          to: ${{ secrets.RECIPIENT_EMAIL }}
+          from: GitHub Actions
+          body: |
+            Good morning!
+
+            Here are some interesting facts for today:
+
+            General Fact 1: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact1 }}
+            General Fact 2: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact2 }}
+
+            Arts Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ArtsFact }}
+            Science Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ScienceFact }}
+            Sports Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).SportsFact }}
+
+            Your daily dad joke:
+            ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).DadJoke }}
