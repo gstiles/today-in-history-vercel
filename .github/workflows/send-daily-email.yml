@@ -15,7 +15,7 @@ jobs:
         id: fetch-data
         run: |
           # Use curl to get the JSON data from your Vercel API
-          API_RESPONSE=$(curl -s "https://[your-project-name].vercel.app/api/today")
+          API_RESPONSE=$(curl -s "https://today-in-history-vercel.vercel.app/api/today")
           echo "API_RESPONSE=${API_RESPONSE}" >> $GITHUB_OUTPUT
 
       - name: Send Email
