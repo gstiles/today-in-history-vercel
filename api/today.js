@@ -1,21 +1,34 @@
 const axios = require('axios');
 
-// Helper function from previous iteration (kept for robust category searching)
-const findFact = (events, keywords, excludedDescriptions) => {
-    // 1. Try to find a direct match for the keywords
-    let fact = events.find(e => {
-        const isExcluded = excludedDescriptions.includes(e.description);
-        if (isExcluded) return false;
+// Updated findFact helper function to be more robust
+const findFact = (events, keywords, minYear, excludedDescriptions) => {
+    // Helper to check if an event is relevant and not excluded
+    const isRelevant = (e, checkKeywords = true) => {
+        if (excludedDescriptions.includes(e.description)) return false;
+        if (!e.description) return false;
 
-        return keywords.some(keyword => e.description && e.description.toLowerCase().includes(keyword));
+        if (checkKeywords) {
+            return keywords.some(keyword => e.description.toLowerCase().includes(keyword));
+        }
+        return true; // No keyword check, just checking exclusion and existence
+    };
+
+    // 1. Try to find a direct match for the keywords AND meet the minimum year
+    let fact = events.find(e => {
+        return isRelevant(e) && (minYear ? parseInt(e.year, 10) >= minYear : true);
     });
 
-    // 2. If no direct match is found, try to find an event that hasn't been used yet
+    // 2. If no match is found, try to find a direct match without the minimum year
     if (!fact) {
-        fact = events.find(e => !excludedDescriptions.includes(e.description));
+        fact = events.find(e => isRelevant(e));
     }
 
-    return fact ? fact.description : null;
+    // 3. If still no match, and no keywords were specified (shouldn't happen here, but for safety)
+    if (!fact && !keywords.length) {
+        fact = events.find(e => isRelevant(e, false));
+    }
+
+    return fact ? fact : null; // Return the full event object
 };
 
 module.exports = async function (req, res) {
@@ -28,38 +41,60 @@ module.exports = async function (req, res) {
         const historyRes = await axios.get(`https://byabbe.se/on-this-day/${month}/${day}/events.json`);
         const events = historyRes.data.events;
 
-        // --- NEW LOGIC FOR GENERAL FACTS ---
-        let generalFacts = [];
-        let excludedDescriptions = [];
+        // Array to track ALL fact descriptions used to prevent duplicates
+        let usedDescriptions = [];
+
+        // --- GENERAL FACTS (Keeping the Modern/Historical mix) ---
 
         // 1. Find a Modern Fact (Year >= 2000)
-        const modernFact = events.find(e => parseInt(e.year, 10) >= 2000);
+        const modernFactEvent = events.find(e => parseInt(e.year, 10) >= 2000);
+        let generalFact1 = "No general fact 1 found.";
 
-        if (modernFact) {
-            generalFacts.push(`${modernFact.year}: ${modernFact.description}`);
-            excludedDescriptions.push(modernFact.description);
+        if (modernFactEvent) {
+            generalFact1 = `${modernFactEvent.year}: ${modernFactEvent.description}`;
+            usedDescriptions.push(modernFactEvent.description);
         }
 
         // 2. Find a Historical/Ancient Fact
-        // Get the very first fact, but only if it's not the same as the modern fact
-        const historicalFact = events.find(e => e.description !== modernFact?.description);
+        const historicalFactEvent = events.find(e => !usedDescriptions.includes(e.description));
+        let generalFact2 = "No general fact 2 found.";
 
-        if (historicalFact) {
-            generalFacts.push(`${historicalFact.year}: ${historicalFact.description}`);
-            excludedDescriptions.push(historicalFact.description);
+        if (historicalFactEvent) {
+            generalFact2 = `${historicalFactEvent.year}: ${historicalFactEvent.description}`;
+            usedDescriptions.push(historicalFactEvent.description);
         }
 
-        // Ensure we have at least two facts, falling back to original logic if necessary
-        const generalFact1 = generalFacts[0] || events.slice(0, 1).map(e => `${e.year}: ${e.description}`)[0] || "No general fact 1 found.";
-        const generalFact2 = generalFacts[1] || events.slice(1, 2).map(e => `${e.year}: ${e.description}`)[0] || "No general fact 2 found.";
+        // --- CATEGORY FACTS (Prioritize Year >= 2000 and ensure no duplicates) ---
 
-        // --- END NEW LOGIC ---
+        let factEvent;
 
-        // Continue to use robust logic for category facts
-        // Note: excludedDescriptions now holds descriptions from both modern and historical facts
-        const artsFact = findFact(events, ["art", "artist", "painting", "sculpture"], excludedDescriptions) || "No arts fact found.";
-        const scienceFact = findFact(events, ["science", "scientist", "physics", "astronomy", "discovery"], excludedDescriptions) || "No science fact found.";
-        const sportsFact = findFact(events, ["sport", "sports", "game", "team", "championship"], excludedDescriptions) || "No sports fact found.";
+        // ARTS/MUSIC FACT
+        const artKeywords = ["art", "artist", "painting", "sculpture", "music", "musician", "album", "song"];
+        factEvent = findFact(events, artKeywords, 2000, usedDescriptions);
+        if (!factEvent) { // Fallback to any year if a 2000+ fact wasn't found
+            factEvent = findFact(events, artKeywords, null, usedDescriptions);
+        }
+        const artsFact = factEvent ? factEvent.description : "No arts fact found.";
+        if (factEvent) usedDescriptions.push(factEvent.description);
+
+        // SCIENCE FACT
+        const scienceKeywords = ["science", "scientist", "physics", "astronomy", "discovery", "technology", "invention", "engineer"];
+        factEvent = findFact(events, scienceKeywords, 2000, usedDescriptions);
+        if (!factEvent) { // Fallback to any year
+            factEvent = findFact(events, scienceKeywords, null, usedDescriptions);
+        }
+        const scienceFact = factEvent ? factEvent.description : "No science fact found.";
+        if (factEvent) usedDescriptions.push(factEvent.description);
+
+        // SPORTS FACT
+        const sportsKeywords = ["sport", "sports", "game", "team", "championship", "world series", "olympic"];
+        factEvent = findFact(events, sportsKeywords, 2000, usedDescriptions);
+        if (!factEvent) { // Fallback to any year
+            factEvent = findFact(events, sportsKeywords, null, usedDescriptions);
+        }
+        const sportsFact = factEvent ? factEvent.description : "No sports fact found.";
+        if (factEvent) usedDescriptions.push(factEvent.description);
+
 
         const jokeRes = await axios.get("https://icanhazdadjoke.com/", {
             headers: { Accept: "application/json" }
