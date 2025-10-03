@@ -1,30 +1,36 @@
 const axios = require('axios');
 
-// Updated findFact helper function for strict keyword matching and duplicate prevention
+// Updated findFact helper function for strict keyword matching and NO BC DATES
 const findFact = (events, keywords, minYear, usedDescriptions) => {
-    // 1. Prioritize facts that match keywords AND the minimum year (e.g., modern facts)
+    // Set a strict lower bound to exclude all BC dates
+    const ABSOLUTE_MIN_YEAR = 1;
+
+    // Helper to check if an event is relevant, not excluded, and is AD
+    const isRelevant = (e, checkKeywords = true) => {
+        if (!e.description || usedDescriptions.includes(e.description)) return false;
+        if (parseInt(e.year, 10) < ABSOLUTE_MIN_YEAR) return false;
+
+        if (checkKeywords) {
+            return keywords.some(keyword => e.description.toLowerCase().includes(keyword));
+        }
+        return true;
+    };
+
+    // 1. Prioritize facts that match keywords AND the specified minimum year (e.g., modern facts >= 2000)
     let fact = events.find(e => {
-        // Must not be a duplicate
-        if (usedDescriptions.includes(e.description)) return false;
-        // Must have a description
-        if (!e.description) return false;
-        // Must meet the minimum year
-        if (minYear && parseInt(e.year, 10) < minYear) return false;
-        // Must contain a keyword
-        return keywords.some(keyword => e.description.toLowerCase().includes(keyword));
+        return isRelevant(e) && (minYear ? parseInt(e.year, 10) >= minYear : true);
     });
 
-    // 2. If no modern match is found, try to find a fact that matches keywords from ANY year
+    // 2. If no modern match is found, try to find a fact that matches keywords from ANY AD year
     if (!fact && minYear) {
         fact = events.find(e => {
-            if (usedDescriptions.includes(e.description)) return false;
-            if (!e.description) return false;
-            return keywords.some(keyword => e.description.toLowerCase().includes(keyword));
+            // Re-use isRelevant but without the optional minYear
+            return isRelevant(e) && (keywords.some(keyword => e.description.toLowerCase().includes(keyword)));
         });
     }
 
-    // IMPORTANT: No final fallback to non-keyword events. If we don't find a relevant fact, we return null.
-    return fact ? fact : null; // Return the full event object
+    // STRICT RULE: No fallback to non-keyword facts. If we don't find a relevant fact, return null.
+    return fact ? fact : null;
 };
 
 module.exports = async function (req, res) {
@@ -39,10 +45,10 @@ module.exports = async function (req, res) {
 
         let usedDescriptions = [];
 
-        // --- GENERAL FACTS (Modern/Historical mix) ---
+        // --- GENERAL FACTS (Strictly AD only, Modern/Historical mix) ---
 
-        // 1. Find a Modern Fact (Year >= 2000)
-        const modernFactEvent = events.find(e => parseInt(e.year, 10) >= 2000);
+        // 1. Find a Modern Fact (Year >= 2000 AND Year >= 1)
+        const modernFactEvent = events.find(e => parseInt(e.year, 10) >= 2000 && parseInt(e.year, 10) >= 1);
         let generalFact1 = "No modern fact found.";
 
         if (modernFactEvent) {
@@ -50,8 +56,8 @@ module.exports = async function (req, res) {
             usedDescriptions.push(modernFactEvent.description);
         }
 
-        // 2. Find a Historical/Ancient Fact (First available, not a duplicate)
-        const historicalFactEvent = events.find(e => !usedDescriptions.includes(e.description));
+        // 2. Find a Historical/Ancient Fact (First available AD event, not a duplicate)
+        const historicalFactEvent = events.find(e => !usedDescriptions.includes(e.description) && parseInt(e.year, 10) >= 1);
         let generalFact2 = "No historical fact found.";
 
         if (historicalFactEvent) {
@@ -59,35 +65,35 @@ module.exports = async function (req, res) {
             usedDescriptions.push(historicalFactEvent.description);
         }
 
-        // --- CATEGORY FACTS (Strictly unique, prioritizing year >= 2000) ---
+        // --- CATEGORY FACTS (Strictly unique, prioritizing year >= 2000, AD only) ---
 
         let factEvent;
 
         // ARTS/MUSIC FACT
-        const artKeywords = ["art", "artist", "painting", "sculpture", "music", "musician", "album", "song", "opera", "theatre"];
+        const artKeywords = ["art", "artist", "painting", "sculpture", "music", "musician", "album", "song", "opera", "theatre", "show", "release"];
         factEvent = findFact(events, artKeywords, 2000, usedDescriptions);
-        if (!factEvent) { // Fallback to any year if a 2000+ fact wasn't found
-            factEvent = findFact(events, artKeywords, null, usedDescriptions);
+        if (!factEvent) { // Fallback to any AD year if a 2000+ fact wasn't found
+            factEvent = findFact(events, artKeywords, 1, usedDescriptions);
         }
-        const artsFact = factEvent ? factEvent.description : "No arts/music fact found.";
+        const artsFact = factEvent ? `${factEvent.year}: ${factEvent.description}` : "No arts/music fact found.";
         if (factEvent) usedDescriptions.push(factEvent.description);
 
         // SCIENCE FACT
-        const scienceKeywords = ["science", "scientist", "physics", "astronomy", "discovery", "technology", "invention", "engineer", "space", "launch", "medicine", "virus"];
+        const scienceKeywords = ["science", "scientist", "physics", "astronomy", "discovery", "technology", "invention", "engineer", "space", "launch", "medicine", "virus", "research"];
         factEvent = findFact(events, scienceKeywords, 2000, usedDescriptions);
-        if (!factEvent) { // Fallback to any year
-            factEvent = findFact(events, scienceKeywords, null, usedDescriptions);
+        if (!factEvent) { // Fallback to any AD year
+            factEvent = findFact(events, scienceKeywords, 1, usedDescriptions);
         }
-        const scienceFact = factEvent ? factEvent.description : "No science fact found.";
+        const scienceFact = factEvent ? `${factEvent.year}: ${factEvent.description}` : "No science fact found.";
         if (factEvent) usedDescriptions.push(factEvent.description);
 
         // SPORTS FACT
-        const sportsKeywords = ["sport", "sports", "game", "team", "championship", "world series", "olympic", "cup", "final", "league", "race", "match"];
+        const sportsKeywords = ["sport", "sports", "game", "team", "championship", "world series", "olympic", "cup", "final", "league", "race", "match", "tournament"];
         factEvent = findFact(events, sportsKeywords, 2000, usedDescriptions);
-        if (!factEvent) { // Fallback to any year
-            factEvent = findFact(events, sportsKeywords, null, usedDescriptions);
+        if (!factEvent) { // Fallback to any AD year
+            factEvent = findFact(events, sportsKeywords, 1, usedDescriptions);
         }
-        const sportsFact = factEvent ? factEvent.description : "No sports fact found.";
+        const sportsFact = factEvent ? `${factEvent.year}: ${factEvent.description}` : "No sports fact found.";
         if (factEvent) usedDescriptions.push(factEvent.description);
 
 
