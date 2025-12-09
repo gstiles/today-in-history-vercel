@@ -1,22 +1,47 @@
+
 name: Daily History Email
 
 on:
   schedule:
-    # Runs Monday to Friday at 6:30 AM EST
+    # Weekdays at 6:30 AM EST = 11:30 UTC
     - cron: '30 11 * * 1-5'
   workflow_dispatch:
 
 jobs:
   send_email:
     runs-on: ubuntu-latest
-
+    env:
+      API_URL: https://today-in-history-vercel.vercel.app/api/today
     steps:
       - name: Fetch History Data from Vercel API
         id: fetch-data
         run: |
-          # Use curl to get the JSON data from your Vercel API
-          API_RESPONSE=$(curl -s "https://today-in-history-vercel.vercel.app/api/today")
-          echo "API_RESPONSE=${API_RESPONSE}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          echo "Fetching: $API_URL"
+          # Fetch including status code
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" "$API_URL")
+          echo "HTTP_STATUS=$HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Failed to fetch data (status=$HTTP_STATUS)."
+            echo "API_RESPONSE={\"Date\":\"$(date -u +%m/%d)\",\"GeneralFact1\":\"Fetch failed (HTTP $HTTP_STATUS)\",\"GeneralFact2\":\"\",\"ArtsFact\":\"\",\"ScienceFact\":\"\",\"SportsFact\":\"\",\"DadJoke\":\"\"}" >> "$GITHUB_OUTPUT"
+            exit 0  # Continue so you still get an email with the failure message
+          fi
+
+          # Validate that response.json is valid JSON
+          if ! jq empty response.json >/dev/null 2>&1; then
+            echo "Response was not valid JSON."
+            echo "API_RESPONSE={\"Date\":\"$(date -u +%m/%d)\",\"GeneralFact1\":\"Invalid JSON returned\",\"GeneralFact2\":\"\",\"ArtsFact\":\"\",\"ScienceFact\":\"\",\"SportsFact\":\"\",\"DadJoke\":\"\"}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Write the whole JSON to the output
+          echo "API_RESPONSE=$(cat response.json)" >> "$GITHUB_OUTPUT"
+
+          # Log a brief summary
+          echo "::group::Summary"
+          jq -r '.Date, .GeneralFact1, .GeneralFact2' response.json
+          echo "::endgroup::"
 
       - name: Send Email
         uses: dawidd6/action-send-mail@v3
@@ -24,29 +49,22 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
+          password: ${{ secrets.EMAIL_PASSWORD }} # Use a Gmail App Password if 2FA is enabled
           subject: "Today in History: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).Date }}"
           to: ${{ secrets.RECIPIENT_EMAIL }}
           from: GitHub Actions
+          content_type: text/plain; charset=utf-8
           body: |
             Good morning!
 
             📅 Here are some interesting facts for today:
 
-            🕰️
             General Fact 1: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact1 }}
-            
             General Fact 2: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).GeneralFact2 }}
-            
-            🎨 
-            Arts Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ArtsFact }}
-            
-            🔬 
-            Science Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ScienceFact }}
-            
-            🏅 
-            Sports Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).SportsFact }}
-            
-            😂 
-            Your daily dad joke:
+
+            🎨 Arts Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ArtsFact }}
+            🔬 Science Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).ScienceFact }}
+            🏅 Sports Fact: ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).SportsFact }}
+
+            😂 Your daily dad joke:
             ${{ fromJson(steps.fetch-data.outputs.API_RESPONSE).DadJoke }}
