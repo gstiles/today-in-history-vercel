@@ -1,0 +1,31 @@
+
+name: Vercel Deployment Test
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Wait for Vercel Deployment
+        run: |
+          echo "Waiting 60 seconds for Vercel deployment..."
+          sleep 60
+
+      - name: Test Vercel API endpoint
+        run: |
+          echo "Testing Vercel API..."
+          RESPONSE=$(curl -s https://today-in-history-vercel.vercel.app/api/today)
+          echo "Response: $RESPONSE"
+          if [[ $RESPONSE == *"Date"* && $RESPONSE == *"DadJoke"* ]]; then
+            echo "✅ API returned expected keys"
+          else
+            echo "❌ API test failed"
+            exit 1
+          fi
