@@ -1,6 +1,12 @@
 
+@'
 {
   "version": 2,
-  "builds": [{ "src": "api/today.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/api/today", "dest": "/api/today.js" }]
+  "builds": [
+    { "src": "api/today.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/today", "dest": "/api/today.js" }
+  ]
 }
+'@ | Set-Content -NoNewline vercel.json
