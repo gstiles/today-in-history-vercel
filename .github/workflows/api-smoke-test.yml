@@ -1,0 +1,46 @@
+name: API Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show node version
+        run: node --version
+
+      - name: Determine API URL
+        id: url
+        run: |
+          if [ -n "${{ secrets.VERCEL_PROD_URL }}" ]; then
+            echo "API_URL=${{ secrets.VERCEL_PROD_URL }}/api/today" >> $GITHUB_OUTPUT
+          elif [ -n "${{ vars.VERCEL_PROD_URL }}" ]; then
+            echo "API_URL=${{ vars.VERCEL_PROD_URL }}/api/today" >> $GITHUB_OUTPUT
+          else
+            echo "? No VERCEL_PROD_URL provided (set repo secret or variable)."
+            exit 1
+          fi
+
+      - name: Test Today API
+        env:
+          API_URL: ${{ steps.url.outputs.API_URL }}
+        run: |
+          echo "Testing Today API at: $API_URL"
+          status=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL")
+          echo "HTTP status: $status"
+          if [ "$status" -ne 200 ]; then
+            echo "? API returned status $status"
+            echo "Response body:"
+            curl -sS "$API_URL" || true
+            exit 1
+          fi
+          echo "? API returned 200 OK"
+          echo "Response snippet:"
+          curl -s "$API_URL" | head -c 400

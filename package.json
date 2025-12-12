@@ -1,8 +1,18 @@
+
+@'
 {
   "name": "today-in-history-api",
   "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": ">=18 <21" },
   "dependencies": {
-    "@vercel/speed-insights": "^1.2.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "@vercel/speed-insights": "^1.2.0"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/today.js"
   }
 }
+'@ | Set-Content -NoNewline package.json
