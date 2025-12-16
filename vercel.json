@@ -1,4 +1,8 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
-}
-``
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/today.js": {
+      "memory": 256,
+           "maxDuration": 10
+    }
+  }
