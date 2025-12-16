@@ -1,5 +1,3 @@
-
-@'
 {
   "version": 2,
   "builds": [
@@ -9,4 +7,3 @@
     { "src": "/api/today", "dest": "/api/today.js" }
   ]
 }
-'@ | Set-Content -NoNewline vercel.json
