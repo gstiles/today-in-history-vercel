@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-
 const fs = require('fs');
 const https = require('https');
 
@@ -47,7 +45,6 @@ module.exports = async function handler(req, res) {
         facts.GeneralFact1 = eventsData.events[0].description || 'No fact found.';
         facts.GeneralFact2 = eventsData.events[1]?.description || 'No second fact found.';
       }
-=======
 
 // api/today.js
 const axios = require('axios');
@@ -128,4 +125,3 @@ module.exports = async function (req, res) {
     });
   }
 };
->>>>>>> da873539ca362a237602fa0af490f3ed615e5fd2
