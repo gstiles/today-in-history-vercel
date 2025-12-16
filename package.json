@@ -1,6 +1,4 @@
-
-@'
-{
+﻿{
   "name": "today-in-history-api",
   "version": "1.0.0",
   "private": true,
@@ -15,4 +13,3 @@
     "start": "node api/today.js"
   }
 }
-'@ | Set-Content -NoNewline package.json
