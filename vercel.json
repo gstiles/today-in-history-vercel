@@ -3,6 +3,7 @@
   "functions": {
     "api/today.js": {
       "memory": 256,
-           "maxDuration": 10
+      "maxDuration": 10
     }
   }
+}
